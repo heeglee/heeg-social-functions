@@ -1,34 +1,34 @@
 const app = require('express')();
 
-const { getAllScreams, postScream, getScream, likeScream, unlikeScream, commentOnScream, deleteScream } = require('./handlers/screams');
+const { getAllSqueaks, postSqueak, getSqueak, likeSqueak, unlikeSqueak, commentOnSqueak, deleteSqueak } = require('./handlers/squeaks');
 const { signUp, login, uploadImage, addUserDetails, getAuthenticatedUser, getUserDetails, markNotificationsRead } = require('./handlers/users');
 const { database } = require('./util/admin');
 
 const functions = require('firebase-functions');
 const firebaseAuthMiddleware = require('./util/firebaseAuthMiddleware');
 
-// Scream routes
-app.get('/screams', getAllScreams);
-app.post('/screams', firebaseAuthMiddleware, postScream);
-app.get('/screams/:screamId', getScream);
-app.get('/screams/:screamId/like', firebaseAuthMiddleware, likeScream);
-app.get('/screams/:screamId/unlike', firebaseAuthMiddleware, unlikeScream);
-app.post('/screams/:screamId/comments', firebaseAuthMiddleware, commentOnScream);
-app.delete('/screams/:screamId', firebaseAuthMiddleware, deleteScream);
+// Squeak routes
+app.get('/squeaks', getAllSqueaks);
+app.post('/squeaks', firebaseAuthMiddleware, postSqueak);
+app.get('/squeaks/:squeakId', getSqueak);
+app.get('/squeaks/:squeakId/like', firebaseAuthMiddleware, likeSqueak);
+app.get('/squeaks/:squeakId/unlike', firebaseAuthMiddleware, unlikeSqueak);
+app.post('/squeaks/:squeakId/comments', firebaseAuthMiddleware, commentOnSqueak);
+app.delete('/squeaks/:squeakId', firebaseAuthMiddleware, deleteSqueak);
 
 // Users routes
 app.post('/signup', signUp);
 app.post('/login', login);
+app.get('/user/:username', getUserDetails);
+app.get('/user', firebaseAuthMiddleware, getAuthenticatedUser);
 app.post('/user/image', firebaseAuthMiddleware, uploadImage);
 app.post('/user', firebaseAuthMiddleware, addUserDetails);
-app.get('/user', firebaseAuthMiddleware, getAuthenticatedUser);
-app.get('/user/:handle', getUserDetails);
 app.post('/notifications', firebaseAuthMiddleware, markNotificationsRead);
 
 exports.api = functions.https.onRequest(app);
 
 exports.createNotificationOnLike = functions.firestore.document('likes/{id}').onCreate(snapshot => {
-    return database.doc(`/screams/${snapshot.data().screamId}`).get().then(doc => {
+    return database.doc(`/squeaks/${snapshot.data().squeakId}`).get().then(doc => {
         if (doc.exists && doc.data().user !== snapshot.data().user) {
             return database.doc(`/notifications/${snapshot.id}`).set({
                 timeCreated: new Date().toISOString(),
@@ -36,7 +36,7 @@ exports.createNotificationOnLike = functions.firestore.document('likes/{id}').on
                 sender: snapshot.data().user,
                 type: 'like',
                 read: false,
-                screamId: doc.id
+                squeakId: doc.id
             });
         }
     }).catch(e => {
@@ -45,7 +45,7 @@ exports.createNotificationOnLike = functions.firestore.document('likes/{id}').on
 });
 
 exports.createNotificationOnComment = functions.firestore.document('comments/{id}').onCreate(snapshot => {
-    return database.doc(`/screams/${snapshot.data().screamId}`).get().then(doc => {
+    return database.doc(`/squeaks/${snapshot.data().squeakId}`).get().then(doc => {
         if (doc.exists && doc.data().user !== snapshot.data().user) {
             return database.doc(`/notifications/${snapshot.id}`).set({
                 timeCreated: new Date().toISOString(),
@@ -53,7 +53,7 @@ exports.createNotificationOnComment = functions.firestore.document('comments/{id
                 sender: snapshot.data().user,
                 type: 'comment',
                 read: false,
-                screamId: doc.id
+                squeakId: doc.id
             });
         }
     }).catch(e => {
@@ -70,46 +70,49 @@ exports.deleteNotificationOnUnlike = functions.firestore.document('likes/{id}').
     });
 });
 
-// TEMP
 exports.onUserImageChange = functions.firestore.document('/users/{id}').onUpdate(change => {
-    console.log(change.before.data());
-    console.log(change.after.data());
     if (change.before.data().imageUrl !== change.after.data().imageUrl) {
-        console.log('Image has been changed');
+        const squeaksDocument = database.collection('squeaks').where('user', '==', change.before.data().username);
+        const commentsDocument = database.collection('comments').where('user', '==', change.before.data().username);
         let batch = database.batch();
 
-        return database.collection('screams').where('user', '==', change.before.data().handle).get().then(data => {
+        return squeaksDocument.get().then(data => {
             data.forEach(doc => {
-                const scream = db.doc(`/screams/${doc.id}`);
+                batch.update(database.doc(`/squeaks/${doc.id}`), { userImage: change.after.data().imageUrl });
+            });
 
-                batch.update(scream, { userImage: change.after.data().imageUrl });
+            return commentsDocument.get();
+
+        }).then(data => {
+            data.forEach(doc => {
+                batch.update(database.doc(`/comments/${doc.id}`), { userImage: change.after.data().imageUrl });
             });
 
             return batch.commit();
+
         }).catch(e => {
             console.error(e);
         });
     }
 });
 
-// TODO: test this again
-exports.onScreamDelete = functions.firestore.document('/screams/{id}').onDelete((snapshot, context) => {
-    const screamId = context.params.screamId;
+exports.onSqueakDelete = functions.firestore.document('/squeaks/{squeakId}').onDelete((snapshot, context) => {
+    const squeakId = context.params.squeakId;
     const batch = database.batch();
 
-    return database.collection('comments').where('parent', '==', screamId).get().then(data => {
+    return database.collection('comments').where('squeakId', '==', squeakId).get().then(data => {
         data.forEach(doc => {
             batch.delete(database.doc(`/comments/${doc.id}`));
         });
 
-        return database.collection('likes').where('screamId', '==', screamId);
+        return database.collection('likes').where('squeakId', '==', squeakId).get();
 
     }).then(data => {
         data.forEach(doc => {
             batch.delete(database.doc(`/likes/${doc.id}`));
         });
 
-        return database.collection('notifications').where('screamId', '==', screamId);
+        return database.collection('notifications').where('squeakId', '==', squeakId).get();
 
     }).then(data => {
         data.forEach(doc => {

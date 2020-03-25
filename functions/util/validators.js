@@ -4,17 +4,12 @@ const isEmail = email => {
     return email.match(emailRegEx) ? true : false;
 };
 
-const isWebsite = addr => {
-    const websiteRegEx = /^(https?:\/\/)?(www\.)?([a-zA-Z0-9]+(-?[a-zA-Z0-9])*\.)+[\w]{2,}(\/\S*)?$/i;
-
-    return addr.match(websiteRegEx) ? true : false;
-}
-
 const isEmpty = string => {
-    return (!string && !string.trim()) ? true : false;
+    if (string) {
+        return (!string && !string.trim()) ? true : false;
+    } else return true;
 };
 
-// TODO: must be refactored
 exports.validateSignUpData = data => {
     let errors = {};
 
@@ -27,7 +22,7 @@ exports.validateSignUpData = data => {
     if (isEmpty(data.password)) errors.password = 'Password must not be empty';
     if (data.password !== data.confirmPassword) errors.confirmPassword = 'Password Confirmation value must match';
     
-    if (isEmpty(data.handle)) errors.handle = 'Handle must not be empty';
+    if (isEmpty(data.username)) errors.username = 'Username must not be empty';
 
     return {
         errors,
@@ -49,10 +44,9 @@ exports.validateLoginData = user => {
 
 exports.reduceUserDetails = data => {
     let userDetails = {};
-    // TODO: call isWebsite();
 
-    if (!isEmpty(data.bio.trim())) userDetails.bio = data.bio;
-    if (!isEmpty(data.website.trim())) {
+    if (data.bio && !isEmpty(data.bio.trim())) userDetails.bio = data.bio;
+    if (data.website && !isEmpty(data.website.trim())) {
         // https://personal.blog.com/
         if (data.website.trim().substring(0, 4) !== 'http') {
             userDetails.website = `http://${data.website.trim()}`;
@@ -60,8 +54,7 @@ exports.reduceUserDetails = data => {
             userDetails.website = data.website.trim();
         }
     }
-
-    if (!isEmpty(data.location.trim())) userDetails.location = data.location;
+    if (data.location && !isEmpty(data.location.trim())) userDetails.location = data.location;
 
     return userDetails;
-}
+};
