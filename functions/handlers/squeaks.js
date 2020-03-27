@@ -136,7 +136,6 @@ exports.unlikeSqueak = (request, response) => {
         }
     }).then(data => {
         if (!data.empty) {
-            // CHK
             return database.doc(`/likes/${data.docs[0].id}`).delete().then(() => {
                 squeakData.countLike--;
                 return squeakDocument.update({ countLike: squeakData.countLike });
@@ -154,7 +153,7 @@ exports.unlikeSqueak = (request, response) => {
 };
 
 exports.commentOnSqueak = (request, response) => {
-    if (request.body.body.trim() === '') return response.status(400).json({ error: 'Comment must not be empty'});
+    if (request.body.body.trim() === '') return response.status(400).json({ comment: 'Comment must not be empty'});
 
     const newComment = {
         squeakId: request.params.squeakId,

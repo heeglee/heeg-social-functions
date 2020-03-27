@@ -6,7 +6,6 @@ firebase.initializeApp(config);
 
 exports.signUp = (request, response) => {
     let token, userId;
-    // TODO: no-image deal
     const noImg = 'no-img.png';
 
     const newUser = {
@@ -117,7 +116,8 @@ exports.getUserDetails = (request, response) => {
             userData.squeaks.push({
                 body: doc.data().body,
                 timeCreated: doc.data().timeCreated,
-                user: doc.data().writer,
+                user: doc.data().user,
+                userImage: doc.data().userImage,
                 countLike: doc.data().countLike,
                 countComment: doc.data().countComment,
                 squeakId: doc.id
